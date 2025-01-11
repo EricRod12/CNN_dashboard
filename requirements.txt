@@ -4,3 +4,4 @@ pandas==2.2.3
 numpy==2.0.2
 streamlit==1.41.1
 pillow==11.1.0
+gdown=5.2.0
