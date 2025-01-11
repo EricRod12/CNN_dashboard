@@ -2,6 +2,8 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+import gdown
+import os
 
 # Define focal loss with proper Keras serialization
 @tf.keras.utils.register_keras_serializable()
@@ -16,17 +18,31 @@ def focal_loss(alpha=1, gamma=0):
         return tf.reduce_mean(focal_loss_value)
     return focal_loss_fixed
 
-MODEL_PATH = "C:/Users/ericr/Downloads/best_model_transfer_A_to_D.keras"  # Adjust as needed
-# Load the trained model
+import tempfile
+
+# Define the model URL
+model_url = "https://drive.google.com/uc?id=1JB6KQIAnyTS_aks7e7CxTbnx8z0zL8Ru"
+
+# Use a temporary directory for the model file
+temp_dir = tempfile.gettempdir()
+model_path = os.path.join(temp_dir, "best_model_transfer_A_to_D.keras")
+
+# Download the model if not already present
+if not os.path.exists(model_path):
+    print("Downloading the model from Google Drive...")
+    gdown.download(model_url, model_path, quiet=False)
+    print("Model downloaded and saved to:", model_path)
+
+# Load the model
 @st.cache_resource
 def load_model():
-    model = tf.keras.models.load_model(
-        MODEL_PATH,  # Update to your model path
-        custom_objects={'focal_loss_fixed': focal_loss(alpha=1, gamma=0)}
+    return tf.keras.models.load_model(
+        model_path,
+        custom_objects={'focal_loss_fixed': focal_loss(alpha=1, gamma=0)},
     )
-    return model
 
 model = load_model()
+
 
 # Function to preprocess the image
 def preprocess_image(image: Image.Image) -> np.ndarray:
@@ -36,17 +52,10 @@ def preprocess_image(image: Image.Image) -> np.ndarray:
     - Ensures 3 channels (RGB).
     - Normalizes pixel values to [0, 1].
     """
-    # Resize to (256, 256)
     image = image.resize((256, 256))
-    
-    # Convert to RGB if image has alpha channel
-    image = image.convert("RGB")
-    
-    # Convert to NumPy array and normalize
+    image = image.convert("RGB")  # Ensure RGB format
     image_array = np.array(image).astype(np.float32) / 255.0
-    
-    # Add batch dimension (1, 256, 256, 3)
-    return np.expand_dims(image_array, axis=0)
+    return np.expand_dims(image_array, axis=0)  # Add batch dimension
 
 # Streamlit app
 st.title("Crack Detection Dashboard")
@@ -56,11 +65,8 @@ st.write("Upload an image of a bridge deck or pavement to predict if it is crack
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
-    # Display the uploaded image
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image", use_column_width=True)
-    
-    # Preprocess the image
     preprocessed_image = preprocess_image(image)
     
     # Make prediction
@@ -69,10 +75,6 @@ if uploaded_file is not None:
     predicted_class = "Cracked" if prediction[0][0] >= 0.5 else "Uncracked"
     confidence = prediction[0][0] if prediction[0][0] >= 0.5 else 1 - prediction[0][0]
     
-    # Display the results
+    # Display results
     st.write(f"**Prediction:** {predicted_class}")
     st.write(f"**Confidence:** {confidence:.2f}")
-
-
-
-
